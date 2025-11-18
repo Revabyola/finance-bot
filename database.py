@@ -27,15 +27,13 @@ def get_database_url():
         logger.info("🔗 Используем SQLite (локально)")
         return 'sqlite:///finance_bot.db'
 
-def init_database():
-    try:
-        Base.metadata.create_all(engine)
-        logger.info("✅ Таблицы базы данных созданы/проверены")
-    except Exception as e:
-        logger.error(f"❌ Ошибка создания таблиц: {e}")
-
-# Инициализируем базу при импорте
-init_database()
+# Создаем движок базы данных
+try:
+    engine = create_engine(get_database_url())
+    logger.info("✅ Подключение к базе данных успешно")
+except Exception as e:
+    logger.error(f"❌ Ошибка подключения к базе: {e}")
+    engine = create_engine('sqlite:///finance_bot.db')  # fallback
 
 Base = declarative_base()
 
@@ -43,40 +41,33 @@ class Expense(Base):
     __tablename__ = 'expenses'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
     amount = Column(Float, nullable=False)
     category = Column(String(100), nullable=False)
     description = Column(String(500))
     date = Column(DateTime, default=datetime.now)
     
     def __repr__(self):
-        return f"<Expense(amount={self.amount}, category='{self.category}')>"
+        return f"<Expense(user_id={self.user_id}, amount={self.amount}, category='{self.category}')>"
 
 class Income(Base):
     __tablename__ = 'incomes'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
     amount = Column(Float, nullable=False)
     category = Column(String(100), nullable=False)
     description = Column(String(500))
     date = Column(DateTime, default=datetime.now)
     
     def __repr__(self):
-        return f"<Income(amount={self.amount}, category='{self.category}')>"
+        return f"<Income(user_id={self.user_id}, amount={self.amount}, category='{self.category}')>"
 
 # Создаем таблицы
 def init_database():
     try:
         Base.metadata.create_all(engine)
         logger.info("✅ Таблицы базы данных созданы/проверены")
-        
-        # Проверяем, что таблицы существуют
-        with engine.connect() as conn:
-            tables = conn.execute(text("""
-                SELECT table_name FROM information_schema.tables 
-                WHERE table_schema = 'public'
-            """)).fetchall()
-            logger.info(f"📊 Найдены таблицы: {[t[0] for t in tables]}")
-            
     except Exception as e:
         logger.error(f"❌ Ошибка создания таблиц: {e}")
 

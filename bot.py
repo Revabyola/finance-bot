@@ -8,7 +8,7 @@ from telegram.ext import (
     filters,
     ConversationHandler,
 )
-from database import Session, Expense, Income, get_session  # ИЗМЕНЕНО
+from database import Session, Expense, Income, get_session
 from config import BOT_TOKEN, EXPENSE_CATEGORIES, INCOME_CATEGORIES
 from datetime import datetime
 
@@ -57,10 +57,15 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     try:
         session = get_session()
+        
         # Рассчитываем баланс из базы
-        total_income = session.query(Income.amount).filter(Income.user_id == user_id).scalar() or 0
-        total_expenses = session.query(Expense.amount).filter(Expense.user_id == user_id).scalar() or 0
+        expenses = session.query(Expense).filter(Expense.user_id == user_id).all()
+        incomes = session.query(Income).filter(Income.user_id == user_id).all()
+        
+        total_income = sum(inc.amount for inc in incomes)
+        total_expenses = sum(exp.amount for exp in expenses)
         balance = total_income - total_expenses
+        
         session.close()
         
         await update.message.reply_text(
@@ -520,25 +525,25 @@ async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE)
     category = context.user_data['category']
     transaction_type = context.user_data['transaction_type']
 
-    # Сохраняем транзакцию
+    # Сохраняем транзакцию (ИСПРАВЛЕННАЯ ВЕРСИЯ)
     try:
         session = get_session()
         if transaction_type == "expense":
             transaction = Expense(
-                user_id=user_id,
                 amount=amount,
                 category=category,
                 description=description,
                 date=datetime.now()
             )
+            transaction.user_id = user_id  # устанавливаем user_id отдельно
         else:
             transaction = Income(
-                user_id=user_id,
                 amount=amount,
                 category=category,
                 description=description,
                 date=datetime.now()
             )
+            transaction.user_id = user_id  # устанавливаем user_id отдельно
         
         session.add(transaction)
         session.commit()

@@ -1,136 +1,91 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+import logging
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-import logging
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
-
-class Transaction(Base):
-    __tablename__ = 'transactions'
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
-    amount = Column(Float, nullable=False)
-    category = Column(String(100), nullable=False)
-    transaction_type = Column(String(10), nullable=False)  # 'income' или 'expense'
-    description = Column(Text)
-    created_at = Column(DateTime, default=datetime.now)
-    
-    def __repr__(self):
-        return f"<Transaction(user_id={self.user_id}, amount={self.amount}, type={self.transaction_type})>"
-
-class Database:
-    def __init__(self, db_url=None):
-        # Используем DATABASE_URL от Heroku или локальную SQLite
-        if db_url is None:
-            db_url = os.getenv('DATABASE_URL', 'sqlite:///finance.db')
-        
+def get_database_url():
+    """
+    Получаем URL базы данных.
+    На Render используем PostgreSQL, локально - SQLite
+    """
+    # Для Render (PostgreSQL)
+    if 'DATABASE_URL' in os.environ:
+        db_url = os.environ['DATABASE_URL']
         # Конвертируем postgres:// в postgresql:// для SQLAlchemy
         if db_url.startswith('postgres://'):
             db_url = db_url.replace('postgres://', 'postgresql://', 1)
-            
-        self.engine = create_engine(db_url)
-        Base.metadata.create_all(self.engine)
-        Session = sessionmaker(bind=self.engine)
-        self.session = Session()
-        logger.info(f"✅ База данных инициализирована: {db_url}")
-    
-    def add_transaction(self, user_id, amount, category, transaction_type, description=""):
-        try:
-            # Для расходов сохраняем отрицательную сумму, для доходов - положительную
-            final_amount = -abs(amount) if transaction_type == 'expense' else abs(amount)
-            
-            transaction = Transaction(
-                user_id=user_id,
-                amount=final_amount,
-                category=category,
-                transaction_type=transaction_type,
-                description=description
-            )
-            self.session.add(transaction)
-            self.session.commit()
-            logger.info(f"✅ Добавлена транзакция для user_id={user_id}")
-            return True
-        except Exception as e:
-            self.session.rollback()
-            logger.error(f"❌ Ошибка добавления транзакции: {e}")
-            return False
-    
-    def get_transaction_by_id(self, transaction_id, user_id):
-        """Находит транзакцию по ID и user_id"""
-        try:
-            return self.session.query(Transaction).filter_by(id=transaction_id, user_id=user_id).first()
-        except Exception as e:
-            logger.error(f"❌ Ошибка поиска транзакции: {e}")
-            return None
+        logger.info("🔗 Используем PostgreSQL (Render)")
+        return db_url
+    # Для локальной разработки (SQLite)
+    else:
+        logger.info("🔗 Используем SQLite (локально)")
+        return 'sqlite:///finance_bot.db'
 
-    def update_transaction(self, transaction_id, user_id, amount=None, category=None, description=None):
-        """Обновляет транзакцию"""
-        try:
-            transaction = self.get_transaction_by_id(transaction_id, user_id)
-            if not transaction:
-                return False
-            
-            if amount is not None:
-                # Сохраняем знак в зависимости от типа транзакции
-                if transaction.transaction_type == 'expense':
-                    transaction.amount = -abs(amount)
-                else:
-                    transaction.amount = abs(amount)
-            if category is not None:
-                transaction.category = category
-            if description is not None:
-                transaction.description = description
-                
-            self.session.commit()
-            logger.info(f"✅ Обновлена транзакция {transaction_id} для user_id={user_id}")
-            return True
-        except Exception as e:
-            self.session.rollback()
-            logger.error(f"❌ Ошибка обновления транзакции: {e}")
-            return False
+# Создаем движок базы данных
+try:
+    engine = create_engine(get_database_url())
+    # Тестируем подключение
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logger.info("✅ Подключение к базе данных успешно")
+except Exception as e:
+    logger.error(f"❌ Ошибка подключения к базе: {e}")
+    engine = create_engine('sqlite:///finance_bot.db')  # fallback
 
-    def get_user_balance(self, user_id):
-        try:
-            transactions = self.session.query(Transaction).filter_by(user_id=user_id).all()
-            balance = sum(t.amount for t in transactions)
-            return balance
-        except Exception as e:
-            logger.error(f"❌ Ошибка получения баланса: {e}")
-            return 0
+Base = declarative_base()
+
+class Expense(Base):
+    __tablename__ = 'expenses'
     
-    def get_user_transactions(self, user_id, limit=10):
-        try:
-            return self.session.query(Transaction).filter_by(user_id=user_id).order_by(Transaction.created_at.desc()).limit(limit).all()
-        except Exception as e:
-            logger.error(f"❌ Ошибка получения транзакций: {e}")
-            return []
+    id = Column(Integer, primary_key=True)
+    amount = Column(Float, nullable=False)
+    category = Column(String(100), nullable=False)
+    description = Column(String(500))
+    date = Column(DateTime, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<Expense(amount={self.amount}, category='{self.category}')>"
+
+class Income(Base):
+    __tablename__ = 'incomes'
+    
+    id = Column(Integer, primary_key=True)
+    amount = Column(Float, nullable=False)
+    category = Column(String(100), nullable=False)
+    description = Column(String(500))
+    date = Column(DateTime, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<Income(amount={self.amount}, category='{self.category}')>"
+
+# Создаем таблицы
+def init_database():
+    try:
+        Base.metadata.create_all(engine)
+        logger.info("✅ Таблицы базы данных созданы/проверены")
         
-    def delete_user_transactions(self, user_id):
-        """Удаляет все транзакции пользователя"""
-        try:
-            # Находим все транзакции пользователя
-            transactions = self.session.query(Transaction).filter_by(user_id=user_id).all()
+        # Проверяем, что таблицы существуют
+        with engine.connect() as conn:
+            tables = conn.execute(text("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """)).fetchall()
+            logger.info(f"📊 Найдены таблицы: {[t[0] for t in tables]}")
             
-            # Удаляем каждую транзакцию
-            for transaction in transactions:
-                self.session.delete(transaction)
-            
-            # Сохраняем изменения
-            self.session.commit()
-            logger.info(f"✅ Сброшены данные для user_id={user_id}")
-            return True
-        except Exception as e:
-            # Если ошибка - откатываем изменения
-            self.session.rollback()
-            logger.error(f"❌ Ошибка сброса данных: {e}")
-            return False
+    except Exception as e:
+        logger.error(f"❌ Ошибка создания таблиц: {e}")
 
-# Создаем глобальный экземпляр базы данных
-db = Database()
+# Инициализируем базу при импорте
+init_database()
+
+Session = sessionmaker(bind=engine)
+
+def get_session():
+    """Возвращает новую сессию базы данных"""
+    return Session()

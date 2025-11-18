@@ -27,16 +27,15 @@ def get_database_url():
         logger.info("🔗 Используем SQLite (локально)")
         return 'sqlite:///finance_bot.db'
 
-# Создаем движок базы данных
-try:
-    engine = create_engine(get_database_url())
-    # Тестируем подключение
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    logger.info("✅ Подключение к базе данных успешно")
-except Exception as e:
-    logger.error(f"❌ Ошибка подключения к базе: {e}")
-    engine = create_engine('sqlite:///finance_bot.db')  # fallback
+def init_database():
+    try:
+        Base.metadata.create_all(engine)
+        logger.info("✅ Таблицы базы данных созданы/проверены")
+    except Exception as e:
+        logger.error(f"❌ Ошибка создания таблиц: {e}")
+
+# Инициализируем базу при импорте
+init_database()
 
 Base = declarative_base()
 

@@ -11,13 +11,14 @@ logger = logging.getLogger(__name__)
 
 def get_database_url():
     if 'DATABASE_URL' in os.environ:
+        # Для PostgreSQL на Render
         db_url = os.environ['DATABASE_URL']
+        # Если URL начинается с postgres://, замените на postgresql://
         if db_url.startswith('postgres://'):
             db_url = db_url.replace('postgres://', 'postgresql://', 1)
-        logger.info("🔗 Используем PostgreSQL (Render)")
         return db_url
     else:
-        logger.info("🔗 Используем SQLite (локально)")
+        # Для локальной SQLite
         return 'sqlite:///finance_bot.db'
 
 engine = create_engine(get_database_url())

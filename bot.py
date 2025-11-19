@@ -1,3 +1,25 @@
+import os
+import threading
+from flask import Flask
+
+# Flask сервер для Render
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Finance Bot is running!", 200
+
+@app.route('/health')
+def health():
+    return "OK", 200
+
+def run_web_server():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
+
+
+
 import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
@@ -732,9 +754,19 @@ def main():
     
     application.add_error_handler(error_handler)
 
-    # Запускаем бота
     logger.info("🤖 Бот запущен...")
+    
+    # === ЗАМЕНИТЬ ЭТУ ЧАСТЬ ===
+    # Если запуск на Render, используем веб-сервер + polling
+    if 'RENDER' in os.environ:
+        # Запускаем веб-сервер в отдельном потоке для Render
+        web_thread = threading.Thread(target=run_web_server)
+        web_thread.daemon = True
+        web_thread.start()
+        logger.info("🌐 Веб-сервер запущен для Render")
+    
     application.run_polling()
+    # === КОНЕЦ ЗАМЕНЫ ===
 
 
 if __name__ == "__main__":

@@ -9,22 +9,11 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Просто используем SQLite - он всегда работает
 def get_database_url():
-    if 'DATABASE_URL' in os.environ:
-        db_url = os.environ['DATABASE_URL']
-        if db_url.startswith('postgres://'):
-            db_url = db_url.replace('postgres://', 'postgresql://', 1)
-        return db_url
-    else:
-        return 'sqlite:///finance_bot.db'
+    return 'sqlite:///finance_bot.db'
 
-# Создаем engine с настройками для совместимости
-engine = create_engine(
-    get_database_url(),
-    pool_pre_ping=True,
-    echo=False  # Отключаем логи SQL для продакшена
-)
-
+engine = create_engine(get_database_url())
 Base = declarative_base()
 
 class Expense(Base):
@@ -48,9 +37,9 @@ class Income(Base):
 def init_database():
     try:
         Base.metadata.create_all(engine)
-        logger.info("✅ Таблицы созданы/проверены")
+        logger.info("✅ База данных готова")
     except Exception as e:
-        logger.error(f"❌ Ошибка создания таблиц: {e}")
+        logger.error(f"❌ Ошибка: {e}")
 
 Session = sessionmaker(bind=engine)
 

@@ -2,5 +2,4 @@ python-telegram-bot==20.7
 sqlalchemy==1.4.50
 python-dotenv==1.0.0
 flask==2.3.3
-psycopg2-binary==2.9.9
 apscheduler==3.10.4

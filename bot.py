@@ -1,29 +1,10 @@
 import os
+import logging
 import threading
 from flask import Flask
-
-# Flask сервер для Render
-app = Flask(__name__)
-
-@app.route('/')
-def health_check():
-    return "Finance Bot is running!", 200
-
-@app.route('/health')
-def health():
-    return "OK", 200
-
-def run_web_server():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-
-
-
-
-import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from database import Session, Expense, Income, get_session
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+from database import Session, Expense, Income, get_session, init_database
 from config import BOT_TOKEN, EXPENSE_CATEGORIES, INCOME_CATEGORIES
 from datetime import datetime
 
@@ -45,6 +26,20 @@ logger = logging.getLogger(__name__)
     EDITING_DESCRIPTION
 ) = range(8)
 
+# Flask сервер для Railway
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Finance Bot is running!", 200
+
+@app.route('/health')
+def health():
+    return "OK", 200
+
+def run_web_server():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def get_main_keyboard():
     """Клавиатура основного меню"""
@@ -56,7 +51,6 @@ def get_main_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-
 def get_categories_keyboard(transaction_type):
     """Клавиатура с категориями"""
     categories = (
@@ -65,7 +59,6 @@ def get_categories_keyboard(transaction_type):
     keyboard = [[KeyboardButton(cat)] for cat in categories]
     keyboard.append([KeyboardButton("↩️ Назад")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
 
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает баланс пользователя"""
@@ -91,7 +84,6 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Ошибка получения баланса: {e}")
         await update.message.reply_text("❌ Ошибка получения баланса")
-
 
 async def show_chart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает текстовую диаграмму баланса"""
@@ -134,7 +126,6 @@ async def show_chart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Ошибка построения диаграммы: {e}")
         await update.message.reply_text("❌ Ошибка построения диаграммы")
 
-
 async def reset_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Сброс всех данных пользователя"""
     keyboard = [
@@ -154,7 +145,6 @@ async def reset_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     return CONFIRM_RESET
-
 
 async def handle_reset_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка подтверждения сброса данных"""
@@ -186,7 +176,6 @@ async def handle_reset_confirmation(update: Update, context: ContextTypes.DEFAUL
         )
     
     return ConversationHandler.END
-
 
 async def edit_operation_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Позволяет выбрать операцию для редактирования"""
@@ -245,7 +234,6 @@ async def edit_operation_select(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("❌ Ошибка загрузки операций")
         return ConversationHandler.END
 
-
 async def show_edit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, transaction_id):
     """Показывает меню редактирования операции"""
     transactions = context.user_data.get('transactions', [])
@@ -278,7 +266,6 @@ async def show_edit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, tra
     context.user_data['transaction_type'] = transaction['type']
     return EDIT_MENU
 
-
 async def handle_operation_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка выбора операции для редактирования"""
     text = update.message.text
@@ -293,7 +280,6 @@ async def handle_operation_selection(update: Update, context: ContextTypes.DEFAU
     except (ValueError, IndexError):
         await update.message.reply_text("❌ Неверный формат операции", reply_markup=get_main_keyboard())
         return SELECT_OPERATION
-
 
 async def handle_edit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка меню редактирования"""
@@ -345,7 +331,6 @@ async def handle_edit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         return ConversationHandler.END
 
-
 async def handle_editing_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка изменения суммы"""
     text = update.message.text
@@ -385,7 +370,6 @@ async def handle_editing_amount(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("❌ Введите корректную сумму (например: 1500 или 99.90)")
         return EDITING_AMOUNT
 
-
 async def handle_editing_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка изменения описания"""
     text = update.message.text
@@ -421,7 +405,6 @@ async def handle_editing_description(update: Update, context: ContextTypes.DEFAU
     context.user_data.clear()
     return ConversationHandler.END
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
     user = update.effective_user
@@ -442,7 +425,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ConversationHandler.END
 
-
 async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начало добавления расхода"""
     context.user_data['transaction_type'] = 'expense'
@@ -454,7 +436,6 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return WAITING_AMOUNT
 
-
 async def add_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начало добавления дохода"""
     context.user_data['transaction_type'] = 'income'
@@ -465,7 +446,6 @@ async def add_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
     return WAITING_AMOUNT
-
 
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка ввода суммы"""
@@ -492,7 +472,6 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("❌ Введите корректную сумму (например: 1500 или 99.90)")
         return WAITING_AMOUNT
-
 
 async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка выбора категории"""
@@ -521,7 +500,6 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Выберите категорию из списка")
         return WAITING_CATEGORY
 
-
 async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка ввода описания"""
     text = update.message.text
@@ -540,25 +518,25 @@ async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE)
     category = context.user_data['category']
     transaction_type = context.user_data['transaction_type']
 
-    # Сохраняем транзакцию (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+    # Сохраняем транзакцию
     try:
         session = get_session()
         if transaction_type == "expense":
             transaction = Expense(
+                user_id=user_id,
                 amount=amount,
                 category=category,
                 description=description,
                 date=datetime.now()
             )
-            transaction.user_id = user_id  # устанавливаем user_id отдельно
         else:
             transaction = Income(
+                user_id=user_id,
                 amount=amount,
                 category=category,
                 description=description,
                 date=datetime.now()
             )
-            transaction.user_id = user_id  # устанавливаем user_id отдельно
         
         session.add(transaction)
         session.commit()
@@ -583,7 +561,6 @@ async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Очищаем временные данные
     context.user_data.clear()
     return ConversationHandler.END
-
 
 async def show_recent_transactions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает последние операции"""
@@ -625,7 +602,6 @@ async def show_recent_transactions(update: Update, context: ContextTypes.DEFAULT
         logger.error(f"Ошибка получения операций: {e}")
         await update.message.reply_text("❌ Ошибка загрузки операций")
 
-
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает справку"""
     await update.message.reply_text(
@@ -638,7 +614,6 @@ async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
     )
 
-
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отмена текущей операции"""
     context.user_data.clear()
@@ -646,7 +621,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "↩️ Возврат в главное меню", reply_markup=get_main_keyboard()
     )
     return ConversationHandler.END
-
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
@@ -656,12 +630,14 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Произошла ошибка. Попробуйте еще раз.", reply_markup=get_main_keyboard()
         )
 
-
 def main():
     """Основная функция"""
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN не найден!")
         return
+
+    # Инициализируем базу данных
+    init_database()
 
     # Создаем приложение
     application = Application.builder().token(BOT_TOKEN).build()
@@ -749,18 +725,13 @@ def main():
 
     logger.info("🤖 Бот запущен...")
     
-    # === ЗАМЕНИТЬ ЭТУ ЧАСТЬ ===
-    # Если запуск на Render, используем веб-сервер + polling
-    if 'RENDER' in os.environ:
-        # Запускаем веб-сервер в отдельном потоке для Render
-        web_thread = threading.Thread(target=run_web_server)
-        web_thread.daemon = True
-        web_thread.start()
-        logger.info("🌐 Веб-сервер запущен для Render")
+    # Запускаем веб-сервер в отдельном потоке для Railway
+    web_thread = threading.Thread(target=run_web_server)
+    web_thread.daemon = True
+    web_thread.start()
+    logger.info("🌐 Веб-сервер запущен для Railway")
     
     application.run_polling()
-    # === КОНЕЦ ЗАМЕНЫ ===
-
 
 if __name__ == "__main__":
     main()

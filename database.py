@@ -18,8 +18,6 @@ def get_database_url():
     else:
         return 'sqlite:///finance_bot.db'
 
-
-
 engine = create_engine(get_database_url())
 Base = declarative_base()
 
@@ -43,14 +41,10 @@ class Income(Base):
 
 def init_database():
     try:
-        # ПЕРЕСОЗДАЕМ таблицы с user_id
-        Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
-        logger.info("✅ Таблицы ПЕРЕСОЗДАНЫ с полем user_id")
+        logger.info("✅ Таблицы созданы/проверены")
     except Exception as e:
-        logger.error(f"❌ Ошибка: {e}")
-
-
+        logger.error(f"❌ Ошибка создания таблиц: {e}")
 
 Session = sessionmaker(bind=engine)
 

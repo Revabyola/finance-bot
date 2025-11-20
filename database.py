@@ -12,11 +12,9 @@ logger = logging.getLogger(__name__)
 def get_database_url():
     if 'DATABASE_URL' in os.environ:
         db_url = os.environ['DATABASE_URL']
-        # Для psycopg3 используем postgresql+psycopg://
+        # Явно указываем asyncpg драйвер
         if db_url.startswith('postgres://'):
-            db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
-        elif db_url.startswith('postgresql://'):
-            db_url = db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+            db_url = db_url.replace('postgres://', 'postgresql+asyncpg://', 1)
         return db_url
     else:
         return 'sqlite:///finance_bot.db'

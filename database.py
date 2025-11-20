@@ -10,16 +10,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_database_url():
-    if 'DATABASE_URL' in os.environ:
-        # Для PostgreSQL на Render
-        db_url = os.environ['DATABASE_URL']
-        # Если URL начинается с postgres://, замените на postgresql://
-        if db_url.startswith('postgres://'):
-            db_url = db_url.replace('postgres://', 'postgresql://', 1)
-        return db_url
-    else:
-        # Для локальной SQLite
-        return 'sqlite:///finance_bot.db'
+    # ВРЕМЕННО используем SQLite для быстрого запуска
+    return 'sqlite:///finance_bot.db'
 
 engine = create_engine(get_database_url())
 Base = declarative_base()
@@ -51,8 +43,7 @@ def init_database():
     except Exception as e:
         logger.error(f"❌ Ошибка: {e}")
 
-# Принудительно пересоздаем таблицы
-init_database()
+
 
 Session = sessionmaker(bind=engine)
 

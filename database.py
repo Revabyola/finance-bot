@@ -12,9 +12,11 @@ logger = logging.getLogger(__name__)
 def get_database_url():
     if 'DATABASE_URL' in os.environ:
         db_url = os.environ['DATABASE_URL']
-        # Для SQLAlchemy 1.4.x используем postgresql://
+        # Для psycopg3 используем postgresql+psycopg://
         if db_url.startswith('postgres://'):
-            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+            db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
+        elif db_url.startswith('postgresql://'):
+            db_url = db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
         return db_url
     else:
         return 'sqlite:///finance_bot.db'

@@ -22,14 +22,7 @@ def run_web_server():
 
 import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-    ConversationHandler,
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from database import Session, Expense, Income, get_session
 from config import BOT_TOKEN, EXPENSE_CATEGORIES, INCOME_CATEGORIES
 from datetime import datetime

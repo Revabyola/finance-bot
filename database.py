@@ -12,9 +12,8 @@ logger = logging.getLogger(__name__)
 def get_database_url():
     if 'DATABASE_URL' in os.environ:
         db_url = os.environ['DATABASE_URL']
-        # Явно указываем asyncpg драйвер
         if db_url.startswith('postgres://'):
-            db_url = db_url.replace('postgres://', 'postgresql+asyncpg://', 1)
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
         return db_url
     else:
         return 'sqlite:///finance_bot.db'

@@ -18,7 +18,13 @@ def get_database_url():
     else:
         return 'sqlite:///finance_bot.db'
 
-engine = create_engine(get_database_url())
+# Создаем engine с настройками для совместимости
+engine = create_engine(
+    get_database_url(),
+    pool_pre_ping=True,
+    echo=False  # Отключаем логи SQL для продакшена
+)
+
 Base = declarative_base()
 
 class Expense(Base):
